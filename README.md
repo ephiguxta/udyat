@@ -9,6 +9,6 @@ Faça a conexão com o ESP32 e envie a requisição contendo a _string_: `get_ui
 
 ## O desenvolvimento
 
-E necessário a instalação da (biblioteca)[https://github.com/miguelbalboa/rfid]
+E necessário a instalação da [biblioteca](https://github.com/miguelbalboa/rfid)
 de RFID que opera no módulo MFRC522. Para os usuário da Arduino IDE, basta
 pesquisar por MFRC522 na aba de bibliotecas e instalar o mesmo.
