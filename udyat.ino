@@ -17,6 +17,7 @@ bool send_bluetooth_data(const char *log);
 bool check_data_request(void);
 void send_nibble(const char data);
 char valid_char(const char data);
+bool check_cmd(const char *cmd);
 
 void setup() {
   Serial.begin(115200);
@@ -63,6 +64,30 @@ void loop() {
   on_off_cycle();
 }
 
+bool check_cmd(const char *cmd) {
+  // TODO: fazer mais comandos, pois será acoplado
+  // GPS e Cartão SD ao módulo
+  char tmp[16] = "get_uid";
+
+  int counter = 0;
+
+  for(int i = 0; i < 16; i++) {
+    if(tmp[i] == '\0' || cmd[i] == '\0') {
+      break;
+    }
+
+    if(tmp[i] == cmd[i]) {
+      counter++;
+    }
+  }
+
+  if(counter == 7) {
+    return true;
+  }
+
+  return false;
+}
+
 bool check_data_request(void) {
   // get_uid
   char cmd[16] = { 0 };
@@ -86,9 +111,11 @@ bool check_data_request(void) {
 
         // esse (i - 1) é para ignorar o \n
         cmd[i - 1] = '\0';
-
-        return true;
       }
+    }
+
+    if(check_cmd(cmd)) {
+      return true;
     }
   }
   delay(20);
