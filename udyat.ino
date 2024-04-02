@@ -10,21 +10,17 @@ MFRC522 rfid(5, 27);
 BluetoothSerial SerialBT;
 const char *device_name = "Telemetria";
 
-const int red_led = 12;
-const int green_led = 13;
-
 bool send_bluetooth_data(const char *log);
 bool check_data_request(void);
 void send_nibble(const char data);
 char valid_char(const char data);
 bool check_cmd(const char *cmd);
+void error_log(const char *log);
+void on_off_cycle();
 
 void setup() {
   Serial.begin(115200);
   while(!Serial);
-
-  pinMode(red_led, OUTPUT);
-  pinMode(green_led, OUTPUT);
 
   SPI.begin();
   rfid.PCD_Init();
@@ -37,31 +33,41 @@ void setup() {
 void loop() {
   char uid[10] = { 0 };
 
-  // verifica se o há a presença da tag e se ela pode
-  // ser lida.
-  if(rfid.PICC_IsNewCardPresent()) {
-    if(rfid.PICC_ReadCardSerial()) {
+  // a tag rfid só será lida caso houver um comando bluetooth
+  if(check_data_request()) {
+    // lendo a tag sem precisar distanciar e aproximar todo instante.
+    on_off_cycle();
 
-      // quando chamamos o método ReadCardSerial, o PICC_SELECT
-      // é chamado e as para pegar os bytes ocorrem
-      for(short i = 0; i < rfid.uid.size; i++) {
-        uid[i] = rfid.uid.uidByte[i];
-      }
+    // verifica se o há a presença da tag e se ela pode
+    // ser lida.
+    if(rfid.PICC_IsNewCardPresent()) {
+      if(rfid.PICC_ReadCardSerial()) {
+        // quando chamamos o método ReadCardSerial, o PICC_SELECT
+        // é chamado e as para pegar os bytes ocorrem
+        for(short i = 0; i < rfid.uid.size; i++) {
+          uid[i] = rfid.uid.uidByte[i];
+        }
 
-      rfid.PICC_HaltA();
-      rfid.PCD_StopCrypto1();
+        rfid.PICC_HaltA();
+        rfid.PCD_StopCrypto1();
 
-      // TODO: checar se o dado requisitado é um comando válido.
-      //
-      // quando outro dispositivo requisitar os dados, envia o UID
-      if(check_data_request()) {
         send_bluetooth_data(uid);
       }
+    } else {
+      const char* log = "rfid_off";
+      error_log(log);
     }
-  }
 
-  // lendo a tag sem precisar distanciar e aproximar todo instante.
-  on_off_cycle();
+  }
+}
+
+void error_log(const char *log) {
+  while(*log != '\0') {
+    Serial.printf("%c", *log - '\0');
+    SerialBT.write(*log - '\0');
+    log++;
+  }
+  Serial.println();
 }
 
 bool check_cmd(const char *cmd) {
