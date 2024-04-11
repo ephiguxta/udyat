@@ -16,7 +16,6 @@ void send_nibble(const char data);
 char valid_char(const char data);
 bool check_cmd(const char *cmd);
 void error_log(const char *log);
-void on_off_cycle();
 
 void setup() {
   Serial.begin(115200);
@@ -33,10 +32,13 @@ void setup() {
 void loop() {
   char uid[10] = { 0 };
 
+  delay(256);
+  rfid.PCD_AntennaOff();
+
   // a tag rfid só será lida caso houver um comando bluetooth
   if(check_data_request()) {
-    // lendo a tag sem precisar distanciar e aproximar todo instante.
-    on_off_cycle();
+    // habilitando a antena para realizar a leitura do rfid
+    rfid.PCD_AntennaOn();
 
     // verifica se o há a presença da tag e se ela pode
     // ser lida.
@@ -57,14 +59,13 @@ void loop() {
       const char* log = "rfid_off";
       error_log(log);
     }
-
   }
 }
 
 void error_log(const char *log) {
   while(*log != '\0') {
-    Serial.printf("%c", *log - '\0');
-    SerialBT.write(*log - '\0');
+    Serial.printf("%c", *log);
+    SerialBT.write(*log);
     log++;
   }
   Serial.println();
@@ -179,15 +180,4 @@ void send_nibble(const char data) {
   nibble &= 0x0f;
   nibble = valid_char(nibble);
   SerialBT.write(nibble);
-}
-
-void on_off_cycle() {
-  // como a tag vai ficar parada, a leitura será feita num intervalode ~1s
-  // desligando e ligando a antena, assim poderemos ler o rfid.
-  //
-
-  delay(512);
-  rfid.PCD_AntennaOff();
-  delay(512);
-  rfid.PCD_AntennaOn();
 }
