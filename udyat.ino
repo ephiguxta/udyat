@@ -8,7 +8,7 @@
 MFRC522 rfid(5, 27);
 
 BluetoothSerial SerialBT;
-const char *device_name = "Telemetria";
+const char device_name[32] = { 0 };
 
 bool send_bluetooth_data(const char *log);
 bool check_data_request(void);
@@ -16,6 +16,7 @@ void send_nibble(const char data);
 char valid_char(const char data);
 bool check_cmd(const char *cmd);
 void error_log(const char *log);
+void get_uid(void);
 
 void setup() {
   Serial.begin(115200);
@@ -23,6 +24,7 @@ void setup() {
 
   SPI.begin();
   rfid.PCD_Init();
+  rfid.PCD_AntennaOff();
 
   SerialBT.begin(device_name);
 
@@ -30,35 +32,11 @@ void setup() {
 }
 
 void loop() {
-  char uid[10] = { 0 };
-
   delay(256);
-  rfid.PCD_AntennaOff();
 
   // a tag rfid só será lida caso houver um comando bluetooth
   if(check_data_request()) {
-    // habilitando a antena para realizar a leitura do rfid
-    rfid.PCD_AntennaOn();
-
-    // verifica se o há a presença da tag e se ela pode
-    // ser lida.
-    if(rfid.PICC_IsNewCardPresent()) {
-      if(rfid.PICC_ReadCardSerial()) {
-        // quando chamamos o método ReadCardSerial, o PICC_SELECT
-        // é chamado e as para pegar os bytes ocorrem
-        for(short i = 0; i < rfid.uid.size; i++) {
-          uid[i] = rfid.uid.uidByte[i];
-        }
-
-        rfid.PICC_HaltA();
-        rfid.PCD_StopCrypto1();
-
-        send_bluetooth_data(uid);
-      }
-    } else {
-      const char* log = "rfid_off";
-      error_log(log);
-    }
+    get_uid();
   }
 }
 
@@ -180,4 +158,34 @@ void send_nibble(const char data) {
   nibble &= 0x0f;
   nibble = valid_char(nibble);
   SerialBT.write(nibble);
+}
+
+void get_uid(void) {
+  char uid[10] = { 0 };
+
+  // habilitando a antena para realizar a leitura do rfid
+  rfid.PCD_AntennaOn();
+
+  // verifica se o há a presença da tag e se ela pode
+  // ser lida.
+  if(rfid.PICC_IsNewCardPresent()) {
+    if(rfid.PICC_ReadCardSerial()) {
+      // quando chamamos o método ReadCardSerial, o PICC_SELECT
+      // é chamado e as para pegar os bytes ocorrem
+      for(short i = 0; i < rfid.uid.size; i++) {
+        uid[i] = rfid.uid.uidByte[i];
+      }
+
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
+
+      send_bluetooth_data(uid);
+    }
+  } else {
+    const char* log = "rfid_off";
+    error_log(log);
+  }
+
+  rfid.PCD_AntennaOff();
+  return;
 }
