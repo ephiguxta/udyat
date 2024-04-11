@@ -34,9 +34,12 @@ void setup() {
 void loop() {
   delay(256);
 
+  char uid[10] = { 0 };
+
   // a tag rfid só será lida caso houver um comando bluetooth
   if(check_data_request()) {
-    get_uid();
+    get_uid(uid);
+    send_bluetooth_data(uid);
   }
 }
 
@@ -160,8 +163,7 @@ void send_nibble(const char data) {
   SerialBT.write(nibble);
 }
 
-void get_uid(void) {
-  char uid[10] = { 0 };
+void get_uid(char uid[10]) {
 
   // habilitando a antena para realizar a leitura do rfid
   rfid.PCD_AntennaOn();
@@ -178,8 +180,6 @@ void get_uid(void) {
 
       rfid.PICC_HaltA();
       rfid.PCD_StopCrypto1();
-
-      send_bluetooth_data(uid);
     }
   } else {
     const char* log = "rfid_off";
