@@ -57,28 +57,20 @@ void error_log(const char *log) {
 }
 
 bool check_cmd(const char *cmd) {
-  // TODO: fazer mais comandos, pois será acoplado
-  // GPS e Cartão SD ao módulo
   char tmp[16] = "get_uid";
 
-  int counter = 0;
+  int size = strlen(tmp);
+  int cmp_ret = strncmp(cmd, tmp, size);
 
-  for(int i = 0; i < 16; i++) {
-    if(tmp[i] == '\0' || cmd[i] == '\n') {
-      break;
-    }
-
-    if(tmp[i] == cmd[i]) {
-      counter++;
-    }
-  }
-
-  Serial.printf("cmd: [%s]\n", cmd);
-
-  if(counter == 7) {
+  if(cmp_ret == 0) {
+    Serial.printf("[%s] é um comando válido!\n", cmd);
     return true;
   }
 
+  // TODO: verifique porque pra cada requisição sempre
+  // sobra um byte a mais no final ou no começo que
+  // sempre será inválido
+  Serial.printf("[%s] é um comando inválido!\n", cmd);
   return false;
 }
 
@@ -95,16 +87,15 @@ bool check_data_request(void) {
     //
     for(int i = 0; i < 16; i++) {
       if(SerialBT.available()) {
-        cmd[i] = SerialBT.read();
+        char buff;
+        buff = SerialBT.read();
 
-      } else {
-        // TODO: alguns dispositivos podem enviar apenas os caracteres "visuais",
-        // outros podem enviar um CRLF, procure um jeito de tornar essa atribuição
-        // dinâmica e não hardcoded.
-        //
+        if(buff == '\0' || buff == '\r' || buff == '\n') {
+          break;
+        }
 
-        // esse (i - 1) é para ignorar o \n
-        cmd[i - 1] = '\0';
+        cmd[i] = buff;
+
       }
     }
 
