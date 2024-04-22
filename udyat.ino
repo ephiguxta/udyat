@@ -41,9 +41,13 @@ void loop() {
 
   // a tag rfid só será lida caso houver um comando bluetooth
   if(check_data_request()) {
-    Serial.printf("bluetooth name: [%s]\n", device_name);
-    get_uid(uid);
-    send_bluetooth_data(uid);
+    const char *name = "telemetria_error";
+    if(strncmp(device_name, name, strlen(name))) {
+			Serial.printf("[%s] == [%s]\n", device_name, name);
+      Serial.printf("bluetooth name: [%s]\n", device_name);
+      get_uid(uid);
+      send_bluetooth_data(uid);
+    }
   }
 }
 
@@ -78,6 +82,7 @@ bool check_data_request(void) {
   // get_uid
   char cmd[16] = { 0 };
   char in_data;
+
 
   if(SerialBT.available()) {
 
