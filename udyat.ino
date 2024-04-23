@@ -2,6 +2,11 @@
 #include <BluetoothSerial.h>
 #include <string.h>
 
+// essa lib vai servir apenas para o momento em que ocorre o boot do
+// microcontrolador e durante a atribuição de nome do dispositivo,
+// ficará algo como telemetria_<mac>
+#include <WiFi.h>
+
 // https://github.com/miguelbalboa/rfid
 #include <MFRC522.h>
 
@@ -25,6 +30,9 @@ bool insert_passwd(void);
 void setup() {
   Serial.begin(115200);
   while(!Serial);
+
+	byte mac[6];
+	WiFi.macAddress(mac);
 
   SPI.begin();
 
@@ -220,31 +228,53 @@ void get_uid(char uid[15]) {
 void set_bt_name(char device_name[32]) {
   delay(128);
 
-  char uid[15] = { 0 };
-  get_uid(uid);
+	byte mac[6] = { 0 };
+	byte mac_reversed[6] = { 0 };
 
-  Serial.printf("Peguei o UID, e é [%s]\n", uid);
+	// como o mac vem em bytes é necessário uma conversão
+	// para ASCII válido. Como são 6 bytes, vamos precisar
+	// de 12 caracteres + '\0'
+	char mac_converted[13] = { 0 };
+
+	// inserindo o mac dentro da variável mac
+	WiFi.macAddress(mac);
+
+	// o mac vem de maneira inversa, precisamos inverter ele
+	short j = 0;
+	for(int i = 5; i >= 0; i--) {
+		mac_reversed[j++] = mac[i];
+	}
+
+	// essa máscara serve apenas para o mac não ficar exposto
+	// no nome do bluetooth, pois é para isso que estamos pegando
+	// o mac do dispositivo, já quem em teoria cada um tem o seu
+	byte mask[6] = {
+		0xca, 0xfe, 0xee,
+		0xba, 0xbe, 0xee
+	};
+
+	// ""criptografia"" do mac através do XOR
+	for(int i = 0; i < 6; i++) {
+		mac_reversed[i] ^= mask[i];
+	}
+
+	for(int i = 0; i < 6; i++) {
+		char buffer[2] = { 0 };
+
+		nibble_to_byte(mac_reversed[i], buffer);
+    strncat(mac_converted, buffer, 2);
+	}
+
+	mac_converted[12] = '\0';
+
+  Serial.printf("Peguei o MAC, e é [%s]\n", mac_converted);
 
   unsigned int len = strlen(device_name);
   Serial.printf("len: %d\n", len);
 
-  // esse campo rfid.uid.size é preenchido quando acessamos o
-  // get_uid, se ele for zero (aka falso) significa que nada
-  // foi lido
-  if(rfid.uid.size) {
+  strncat(device_name, mac_converted, strlen(mac_converted));
 
-    strncat(device_name, uid, strlen(uid));
-
-    Serial.printf("O nome é valido: [%s]\n", device_name);
-
-  } else {
-    const char *error = "error";
-    for(int i = 0; i < 5; i++) {
-      device_name[i + len] = error[i];
-    }
-    Serial.printf("O nome é inválido: [%s]\n", device_name);
-  }
-
+  Serial.printf("O nome é valido: [%s]\n", device_name);
   SerialBT.begin(device_name);
 }
 
