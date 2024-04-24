@@ -17,7 +17,7 @@ BluetoothSerial SerialBT;
 char device_name[32] = "telemetria_";
 
 // bool send_bluetooth_data(const char *log);
-void send_bluetooth_data(const char *log);
+void send_bluetooth_data(const char log[15]);
 bool check_data_request(void);
 void nibble_to_byte(const char data, char conv_char[2]);
 char valid_char(const char data);
@@ -55,7 +55,7 @@ void loop() {
     Serial.printf("Tentando enviar o [%s]\n", uid);
     send_bluetooth_data(uid);
 
-    delay(256);
+    delay(1024);
     Serial.printf("Dado bluetooth enviado!\n");
   }
 }
@@ -123,7 +123,7 @@ bool check_data_request(void) {
   return false;
 }
 
-void send_bluetooth_data(const char *log) {
+void send_bluetooth_data(const char log[15]) {
   unsigned log_length = strlen(log);
 
   Serial.printf("[");
@@ -131,6 +131,7 @@ void send_bluetooth_data(const char *log) {
     if (log[i] != '\0') {
       Serial.printf("%c", log[i]);
       SerialBT.write(log[i]);
+      delay(16);
     }
   }
   Serial.printf("]\n");
@@ -196,6 +197,7 @@ void get_uid(char uid[15]) {
 
       // quando chamamos o método ReadCardSerial, o PICC_SELECT
       // é chamado e as para pegar os bytes ocorrem
+      Serial.printf("rfid.uid.size: [%d]\n", rfid.uid.size);
       for (short i = 0; i < rfid.uid.size; i++) {
         char buffer[2] = {0};
         char uid_byte = rfid.uid.uidByte[i];
@@ -204,7 +206,7 @@ void get_uid(char uid[15]) {
         strncat(uid, buffer, 2);
       }
 
-      uid[(rfid.uid.size * 2) + 1] = '\0';
+      uid[(rfid.uid.size * 2)] = '\0';
 
       Serial.printf("Li o UID: [%s]\n", uid);
 
@@ -224,21 +226,14 @@ void set_bt_name(char device_name[32]) {
   delay(128);
 
   byte mac[6] = {0};
-  byte mac_reversed[6] = {0};
 
   // como o mac vem em bytes é necessário uma conversão
   // para ASCII válido. Como são 6 bytes, vamos precisar
   // de 12 caracteres + '\0'
-  char mac_converted[13] = {0};
+  char mac_valid_char[13] = {0};
 
   // inserindo o mac dentro da variável mac
   WiFi.macAddress(mac);
-
-  // o mac vem de maneira inversa, precisamos inverter ele
-  short j = 0;
-  for (int i = 5; i >= 0; i--) {
-    mac_reversed[j++] = mac[i];
-  }
 
   // essa máscara serve apenas para o mac não ficar exposto
   // no nome do bluetooth, pois é para isso que estamos pegando
@@ -247,24 +242,24 @@ void set_bt_name(char device_name[32]) {
 
   // ""criptografia"" do mac através do XOR
   for (int i = 0; i < 6; i++) {
-    mac_reversed[i] ^= mask[i];
+    mac[i] ^= mask[i];
   }
 
   for (int i = 0; i < 6; i++) {
     char buffer[2] = {0};
 
-    nibble_to_byte(mac_reversed[i], buffer);
-    strncat(mac_converted, buffer, 2);
+    nibble_to_byte(mac[i], buffer);
+    strncat(mac_valid_char, buffer, 2);
   }
 
-  mac_converted[12] = '\0';
+  mac_valid_char[12] = '\0';
 
-  Serial.printf("Peguei o MAC, e é [%s]\n", mac_converted);
+  Serial.printf("Peguei o MAC, e é [%s]\n", mac_valid_char);
 
   unsigned int len = strlen(device_name);
   Serial.printf("len: %d\n", len);
 
-  strncat(device_name, mac_converted, strlen(mac_converted));
+  strncat(device_name, mac_valid_char, strlen(mac_valid_char));
 
   Serial.printf("O nome é valido: [%s]\n", device_name);
   SerialBT.begin(device_name);
