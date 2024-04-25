@@ -22,8 +22,7 @@ bool check_data_request(void);
 void nibble_to_byte(const char data, char conv_char[2]);
 char valid_char(const char data);
 bool check_cmd(const char *cmd);
-void error_log(const char *log);
-void get_uid(char uid[15]);
+bool get_uid(char uid[15]);
 void set_bt_name(char device_name[32]);
 bool insert_passwd(void);
 
@@ -40,7 +39,7 @@ void setup() {
 
   set_bt_name(device_name);
 
-  delay(124);
+  delay(128);
 }
 
 void loop() {
@@ -50,23 +49,17 @@ void loop() {
 
   // a tag rfid só será lida caso houver um comando bluetooth
   if (check_data_request()) {
-    get_uid(uid);
+    if (get_uid(uid)) {
+      send_bluetooth_data(uid);
 
-    Serial.printf("Tentando enviar o [%s]\n", uid);
-    send_bluetooth_data(uid);
+    } else {
+      const char error_log[] = "rfid_error";
+      send_bluetooth_data(error_log);
+    }
 
     delay(1024);
     Serial.printf("Dado bluetooth enviado!\n");
   }
-}
-
-void error_log(const char *log) {
-  while (*log != '\0') {
-    Serial.printf("%c", *log);
-    SerialBT.write(*log);
-    log++;
-  }
-  Serial.println();
 }
 
 bool check_cmd(const char *cmd) {
@@ -83,19 +76,19 @@ bool check_cmd(const char *cmd) {
     return true;
   }
 
-  // TODO: verifique porque pra cada requisição sempre
-  // sobra um byte a mais no final ou no começo que
-  // sempre será inválido
   Serial.printf("[%s] é um comando inválido!\n", cmd);
   return false;
 }
 
 bool check_data_request(void) {
-  // get_uid
   char cmd[16] = {0};
   char in_data;
 
-  if (SerialBT.available()) {
+  // quantidade de bytes que virão pelo bluetooth
+  int bt_n_bytes = SerialBT.available();
+
+  // se outro dispositivo enviou dados ao ESP32
+  if (bt_n_bytes > 0 && bt_n_bytes <= 16) {
 
     // caso haja dados sendo enviados por outro dispositivo,
     // pega os 16 bytes, ou menos, e verifica se é um
@@ -118,13 +111,18 @@ bool check_data_request(void) {
       return true;
     }
   }
-  delay(20);
+  delay(64);
+
+  SerialBT.flush();
+  delay(32);
 
   return false;
 }
 
 void send_bluetooth_data(const char log[15]) {
   unsigned log_length = strlen(log);
+
+  Serial.printf("Tentando enviar [%s]\n", log);
 
   Serial.printf("[");
   for (int i = 0; i < log_length; i++) {
@@ -175,15 +173,13 @@ void nibble_to_byte(const char data, char conv_char[2]) {
   conv_char[1] = nibble;
 }
 
-void get_uid(char uid[15]) {
+bool get_uid(char uid[15]) {
   // caso ele tente a comunicação com rfid e ele não "bater"
   // a mesma senha ele vai entrar em loop infinito
   if (!insert_passwd()) {
     Serial.println("Senha incorreta!");
 
-    while (1) {
-      delay(128);
-    }
+    return false;
   }
 
   // habilitando a antena para realizar a leitura do rfid
@@ -212,14 +208,18 @@ void get_uid(char uid[15]) {
 
       rfid.PICC_HaltA();
       rfid.PCD_StopCrypto1();
+
+      rfid.PCD_AntennaOff();
+      delay(128);
+
+      return true;
     }
-  } else {
-    const char *log = "rfid_off";
-    error_log(log);
   }
 
   rfid.PCD_AntennaOff();
-  return;
+  delay(128);
+
+  return false;
 }
 
 void set_bt_name(char device_name[32]) {
